@@ -90,7 +90,7 @@ def select_action(obs, model, steps_done):
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
 
-    if START_TRAIN > len(buffer): #np.random.uniform() < eps_threshold or 
+    if START_TRAIN > len(buffer) and np.random.uniform() < eps_threshold:
         return np.random.randint(0,4)
     else:
         return int(jnp.argmax(model(obs)))
