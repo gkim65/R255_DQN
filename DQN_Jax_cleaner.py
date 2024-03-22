@@ -33,11 +33,8 @@ GENERAL OUTLINE/FLOW:
     - Argmax from the actions given by nn
 3) Execute action, get observations and see if we stop
 4) Add action into REPLAY BUFFER
-
-Need help starting here:
-
 5) Compute losses using target and policy networks, use states from reply buffer
-6) Then optimizer? use optax
+    5a) compute gradients, then backpropagate for optimizer using optax
 
 """
 
@@ -115,80 +112,22 @@ def optimize_model(model, target_model, optimizer, opt_state):
 
     # find largest Q value possible within next steps
     q_targets_next = jnp.max(jax.vmap(target_model)(jnp.array(batch_next_states)),1)
-    # print(q_targets_next)
-    # print(jax.vmap(target_model)(jnp.array(batch_next_states)))
-    # Calculate target value from bellman equation
     q_targets = batch_rewards + GAMMA * q_targets_next * (1 - batch_dones)
-    # print(q_targets)
-    # print(q_targets_next)
-    # print(batch_rewards)
-    # print(batch_rewards)
 
     def loss(model, x, target, actions):
         # Calculate expected value from local network
-        q_expected = jax.vmap(model)(jnp.array(x)) #jnp.max(jax.vmap(model)(jnp.array(x)),1) #jax.vmap(model)(jnp.array(x))
-        # print(q_expected)
-        # print(actions)
+        q_expected = jax.vmap(model)(jnp.array(x)) 
         q_expected_a = jnp.array([q[i] for i, q in zip(actions, q_expected)])
         return jax.numpy.mean(((q_expected_a - target) ** 2)) # mse loss
 
     grad_func = jax.value_and_grad(loss)    
     losses, grads = grad_func(model, batch_states, q_targets, batch_actions)
-    # for i in grads.layers:print(i.weight)
-    # print(losses)
     updates, opt_state = optimizer.update(grads, opt_state)
     model = optax.apply_updates(model, updates)
     
     target_model = tree_add(tree_scalar_mul(1-TAU,target_model),tree_scalar_mul(TAU,model))
-    # params = []
-    # for layer in model.layers:
-    #     params.extend(layer.weight)
-    
-    # # Additional parameter (extra_bias)
-    # params.append(model.extra_bias)
-
-    # print(params[0])
-    # params = []
-    # for layer in sca_model.layers:
-    #     params.extend(layer.weight)
-    
-    # # Additional parameter (extra_bias)
-    # params.append(model.extra_bias)
-    
-    # print(params[0])
-    
-    # target_params = []
-    # for layer in target_model.layers:
-    #     target_params.extend(layer.weight)
-
-    # # Additional parameter (extra_bias)
-    # target_params.append(target_model.extra_bias)
-
-    # new_target_model_params = [(1 - TAU) * target_param + TAU * model_param
-    #                         for model_param, target_param in zip(params, target_params)]
-
-    # params_T, static = eqx.partition(target_model, eqx.is_array)
-    # print(params_T)
-    # # print(new_target_model_params)
-    # target_model = NeuralNetwork(layers = new_target_model_params, extra_bias=target_model.extra_bias)
-
     
     return model, target_model, losses, opt_state, np.mean(q_targets)
-    # return jax.numpy.mean(((q_expected_a - q_targets) ** 2)) # mse loss
-    """Grad output isn't the size/shape needed to go into the optimizer"""
-    ### Loss calculation (we used L2 Loss)
-    # jax.value_and_grad(loss,(q_expected_a, q_targets))
-    # print(q_expected_a)
-    # print(q_targets)
-    # print(grads)
-    # print(grads)
-    # Define the optimizer (e.g., adam)
-
-    """TODOOOO: just add the optimizer???"""
-
-    """Also update target network? soft update"""
-
-    return 
 
 
 ### ------------------------------------------------------------------------------------------
@@ -218,9 +157,8 @@ for step in range(TOTAL_STEPS):
     
     buffer.append([observation, action, reward, observation_next, terminated])
 
-    # grad_func = jax.value_and_grad()
     model, target_model, losses, opt_state, q_targets = optimize_model(model, target_model, optimizer, opt_state)
-    # print(losses) 
+
     loss_list.append(losses)
     q_targets_list.append(q_targets)
     if step%1000 == 0:
